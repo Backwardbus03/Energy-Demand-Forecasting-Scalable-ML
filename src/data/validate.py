@@ -357,3 +357,87 @@ def load_raw(raw_dir: Path) -> pd.DataFrame:
             f"No raw data in {raw_dir}. Run scripts/fetch_raw_data.py first."
         )
     return pd.concat([pd.read_parquet(p) for p in parts], ignore_index=True)
+
+
+# ------------------------------------------------------------ loading views
+
+def load_modeling_frame(
+    raw_dir: Path,
+    respondents: list[str] | None = None,
+    start: str | None = None,
+    end: str | None = None,
+    types: list[str] | None = None,
+    wide: bool = True,
+) -> pd.DataFrame:
+    """Load a filtered, analysis-ready view of the raw store.
+
+    The raw store is never modified - this is a *view*. Widening the window
+    later is a config change, not a re-fetch.
+
+    Filtering happens at the Parquet level where possible: only the year
+    partitions overlapping [start, end] are read from disk.
+
+    Parameters
+    ----------
+    wide:
+        True  -> one row per (period, respondent) with D/DF/NG/TI as columns.
+                 This is the panel shape used for modelling.
+        False -> long format, one row per observation (raw shape).
+    """
+    start_ts = pd.Timestamp(start) if start else None
+    end_ts = pd.Timestamp(end) if end else None
+
+    parts = sorted(raw_dir.glob("year=*/data.parquet"))
+    if not parts:
+        raise FileNotFoundError(f"No raw data in {raw_dir}. Run the ingestion first.")
+
+    # Skip whole partitions outside the window - cheaper than filtering after load.
+    selected = []
+    for part in parts:
+        year = int(part.parent.name.split("=")[1])
+        if start_ts is not None and year < start_ts.year:
+            continue
+        if end_ts is not None and year > end_ts.year:
+            continue
+        selected.append(part)
+
+    if not selected:
+        raise ValueError(f"No partitions overlap {start} .. {end}")
+
+    df = pd.concat([pd.read_parquet(p) for p in selected], ignore_index=True)
+
+    if start_ts is not None:
+        df = df[df["period"] >= start_ts]
+    if end_ts is not None:
+        df = df[df["period"] <= end_ts]
+    if respondents is not None:
+        df = df[df["respondent"].isin(respondents)]
+    if types is not None:
+        df = df[df["type"].isin(types)]
+
+    df = df.sort_values(KEY_COLUMNS).reset_index(drop=True)
+
+    if not wide:
+        return df
+
+    panel = df.pivot_table(
+        index=["period", "respondent"], columns="type", values="value", aggfunc="first"
+    ).reset_index()
+    panel.columns.name = None
+
+    rename = {
+        "D": "demand", "DF": "demand_forecast",
+        "NG": "net_generation", "TI": "interchange",
+    }
+    panel = panel.rename(columns={k: v for k, v in rename.items() if k in panel.columns})
+    return panel.sort_values(["respondent", "period"]).reset_index(drop=True)
+
+
+def load_modeling_respondents(report_path: Path) -> list[str]:
+    """Read the approved modeling set from a saved validation report."""
+    if not report_path.exists():
+        raise FileNotFoundError(
+            f"No validation report at {report_path}. "
+            "Run scripts/validate_raw_data.py first."
+        )
+    return json.loads(report_path.read_text())["modeling_respondents"]

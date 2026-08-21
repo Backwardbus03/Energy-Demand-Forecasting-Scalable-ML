@@ -36,6 +36,12 @@ incremental:
   # and upsert on (period, respondent, type).
   lookback_days: 7
 
+# Analysis window. The raw store keeps ALL history from 2019; this only
+# controls which slice EDA and modelling read. Widening it needs no re-fetch.
+analysis:
+  start: "2022-01-01"
+  end: null            # null => use everything available
+
 paths:
   raw_dir: "data/raw/eia"
   cache_dir: "data/raw/_cache"

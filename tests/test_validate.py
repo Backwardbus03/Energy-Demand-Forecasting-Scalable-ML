@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 
 import pandas as pd
+import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -166,3 +167,73 @@ class TestCoverage:
         report = validate(frame(days("PJM", 10)), min_coverage_pct=0)
         d = report.to_dict()
         assert "passed" in d and "findings" in d
+
+
+class TestModelingFrameLoader:
+    """The analysis window is a view; the raw store is never modified."""
+
+    def _store(self, tmp_path: Path):
+        from src.data.fetch_eia import normalise_rows, write_partitioned
+
+        rows = []
+        for year in (2021, 2022, 2023):
+            for t in ("D", "DF", "NG", "TI"):
+                rows.append({
+                    "period": f"{year}-06-01", "respondent": "PJM",
+                    "respondent-name": "PJM", "type": t, "type-name": t,
+                    "value": "100", "value-units": "megawatthours",
+                    "timezone": "Eastern",
+                })
+        rows.append({
+            "period": "2022-06-01", "respondent": "MIDA", "respondent-name": "Mid-Atlantic",
+            "type": "D", "type-name": "Demand", "value": "500",
+            "value-units": "megawatthours", "timezone": "Eastern",
+        })
+        write_partitioned(normalise_rows(rows, "route"), tmp_path)
+        return tmp_path
+
+    def test_start_date_filters_window(self, tmp_path: Path):
+        from src.data.validate import load_modeling_frame
+
+        raw = self._store(tmp_path)
+        panel = load_modeling_frame(raw, start="2022-01-01")
+        assert panel["period"].min() >= pd.Timestamp("2022-01-01")
+        assert not panel.empty
+
+    def test_raw_store_unchanged_by_loading(self, tmp_path: Path):
+        """Narrowing the window must not delete history from disk."""
+        from src.data.validate import load_modeling_frame
+
+        raw = self._store(tmp_path)
+        before = sorted(p.name for p in raw.glob("year=*"))
+        load_modeling_frame(raw, start="2023-01-01")
+        assert sorted(p.name for p in raw.glob("year=*")) == before
+        # 2021 still loadable afterwards
+        assert not load_modeling_frame(raw, start="2021-01-01").empty
+
+    def test_wide_panel_shape(self, tmp_path: Path):
+        from src.data.validate import load_modeling_frame
+
+        panel = load_modeling_frame(self._store(tmp_path), respondents=["PJM"])
+        for col in ("demand", "demand_forecast", "net_generation", "interchange"):
+            assert col in panel.columns
+        # one row per (period, respondent), not one per observation
+        assert len(panel) == panel[["period", "respondent"]].drop_duplicates().shape[0]
+
+    def test_long_format_preserved(self, tmp_path: Path):
+        from src.data.validate import load_modeling_frame
+
+        long = load_modeling_frame(self._store(tmp_path), respondents=["PJM"], wide=False)
+        assert "type" in long.columns and "value" in long.columns
+
+    def test_respondent_filter(self, tmp_path: Path):
+        from src.data.validate import load_modeling_frame
+
+        panel = load_modeling_frame(self._store(tmp_path), respondents=["PJM"])
+        assert set(panel["respondent"].unique()) == {"PJM"}
+
+    def test_missing_store_raises(self, tmp_path: Path):
+        from src.data.validate import load_modeling_frame
+
+        with pytest.raises(FileNotFoundError):
+            load_modeling_frame(tmp_path / "nope")

@@ -6,6 +6,8 @@ Forecasting next-day regional electricity demand from **EIA API v2**.
 
 ## Problem
 
+Scope is fixed in [PROBLEM_STATEMENT.md](PROBLEM_STATEMENT.md). Read it before proposing changes.
+
 For each US balancing authority (region), predict:
 
 ```
