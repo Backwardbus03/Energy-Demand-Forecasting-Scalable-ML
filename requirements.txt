@@ -1,0 +1,8 @@
+pandas>=2.2
+pyarrow>=16.0
+requests>=2.32
+python-dotenv>=1.0
+tenacity>=8.5
+pyyaml>=6.0
+tqdm>=4.66
+pytest>=8.0

@@ -1,0 +1,42 @@
+# EIA raw ingestion configuration (Phase 1).
+# Verified against the live EIA API v2 on 2026-08-19.
+
+api:
+  base_url: "https://api.eia.gov/v2"
+  route: "electricity/rto/daily-region-data"
+  frequency: "daily"
+  # The API silently caps page size at 5000 even if a larger value is sent.
+  page_size: 5000
+  timeout_seconds: 60
+  max_retries: 5
+  # Politeness delay between successful requests (seconds).
+  request_delay: 0.2
+
+query:
+  start: "2019-01-01"   # dataset begins 2019-01-01; nothing exists before this
+  end: null             # null => today (resolved at runtime)
+
+  # CRITICAL: the `timezone` facet duplicates every observation 5x
+  # (Arizona/Eastern/Central/Mountain/Pacific carry identical values).
+  # Pinning one value is a de-duplication step, not a geographic filter.
+  # Unpinned: 1,830,719 rows. Pinned: 366,144. Same information.
+  timezone: "Eastern"
+
+  # D  = Demand (the forecasting target)
+  # DF = Day-ahead demand forecast (EIA's own published benchmark)
+  # NG = Net generation
+  # TI = Total interchange
+  types: ["D", "DF", "NG", "TI"]
+
+  # null => discover all respondents from the facet endpoint at runtime.
+  respondents: null
+
+incremental:
+  # EIA revises recently published days, so re-fetch a trailing window
+  # and upsert on (period, respondent, type).
+  lookback_days: 7
+
+paths:
+  raw_dir: "data/raw/eia"
+  cache_dir: "data/raw/_cache"
+  log_dir: "data/raw/_logs"
