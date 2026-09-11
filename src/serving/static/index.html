@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>US Electricity Demand Forecaster — MLOps Core</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      --bg-base: #090D16;
+      --bg-surface: #111827;
+      --bg-card: rgba(17, 24, 39, 0.75);
+      --bg-card-hover: rgba(31, 41, 55, 0.85);
+      --border: rgba(255, 255, 255, 0.08);
+      --border-accent: rgba(56, 189, 248, 0.3);
+      --text-main: #F9FAFB;
+      --text-muted: #9CA3AF;
+      --cyan-glow: #38BDF8;
+      --indigo: #6366F1;
+      --emerald: #10B981;
+      --amber: #F59E0B;
+      --rose: #F43F5E;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background: var(--bg-base);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background-image: 
+        radial-gradient(circle at 15% 15%, rgba(99, 102, 241, 0.08) 0%, transparent 45%),
+        radial-gradient(circle at 85% 75%, rgba(56, 189, 248, 0.06) 0%, transparent 45%);
+    }
+
+    /* Header */
+    header {
+      border-bottom: 1px solid var(--border);
+      background: rgba(11, 15, 25, 0.85);
+      backdrop-filter: blur(12px);
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      padding: 1rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.85rem;
+    }
+
+    .brand-icon {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #38BDF8, #6366F1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.25rem;
+      box-shadow: 0 0 16px rgba(56, 189, 248, 0.35);
+    }
+
+    .brand-title {
+      font-weight: 800;
+      font-size: 1.15rem;
+      letter-spacing: -0.02em;
+    }
+
+    .brand-subtitle {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .header-badges {
+      display: flex;
+      gap: 0.75rem;
+      align-items: center;
+    }
+
+    .badge {
+      font-size: 0.75rem;
+      padding: 0.35rem 0.75rem;
+      border-radius: 9999px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .badge-live {
+      border-color: rgba(16, 185, 129, 0.3);
+      color: #34D399;
+    }
+    .badge-live::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #10B981;
+      box-shadow: 0 0 8px #10B981;
+    }
+
+    /* Layout */
+    .container {
+      max-width: 1400px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 2rem;
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      gap: 1.75rem;
+      flex: 1;
+    }
+
+    /* Sidebar controls */
+    .control-card {
+      background: var(--bg-card);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 1.5rem;
+      height: fit-content;
+      display: flex;
+      flex-direction: column;
+      gap: 1.35rem;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    }
+
+    .section-title {
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+      font-weight: 700;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    label {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #D1D5DB;
+    }
+
+    select, input {
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid var(--border);
+      color: var(--text-main);
+      padding: 0.75rem 1rem;
+      border-radius: 10px;
+      font-size: 0.95rem;
+      font-family: inherit;
+      outline: none;
+      transition: all 0.2s ease;
+    }
+
+    select:focus, input:focus {
+      border-color: var(--cyan-glow);
+      box-shadow: 0 0 12px rgba(56, 189, 248, 0.2);
+    }
+
+    .tier-indicator {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.75rem 1rem;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--border);
+    }
+
+    .tier-badge {
+      font-size: 0.75rem;
+      padding: 0.25rem 0.65rem;
+      border-radius: 6px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+    .tier-large { background: rgba(99, 102, 241, 0.18); color: #818CF8; border: 1px solid rgba(99, 102, 241, 0.4); }
+    .tier-medium { background: rgba(56, 189, 248, 0.18); color: #38BDF8; border: 1px solid rgba(56, 189, 248, 0.4); }
+    .tier-small { background: rgba(16, 185, 129, 0.18); color: #34D399; border: 1px solid rgba(16, 185, 129, 0.4); }
+
+    .btn-predict {
+      background: linear-gradient(135deg, #0284C7, #4F46E5);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      padding: 0.9rem;
+      font-size: 0.95rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 18px rgba(79, 70, 229, 0.35);
+    }
+
+    .btn-predict:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 24px rgba(79, 70, 229, 0.5);
+    }
+
+    .btn-predict:active { transform: translateY(1px); }
+
+    /* Main display area */
+    .main-content {
+      display: flex;
+      flex-direction: column;
+      gap: 1.75rem;
+    }
+
+    /* Cards grid */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1.25rem;
+    }
+
+    .stat-card {
+      background: var(--bg-card);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      position: relative;
+      overflow: hidden;
+      transition: all 0.2s ease;
+    }
+
+    .stat-card:hover {
+      border-color: var(--border-accent);
+      background: var(--bg-card-hover);
+    }
+
+    .stat-card.primary {
+      border-color: rgba(56, 189, 248, 0.4);
+      background: linear-gradient(145deg, rgba(17, 24, 39, 0.85), rgba(15, 23, 42, 0.9));
+      box-shadow: 0 8px 24px rgba(56, 189, 248, 0.12);
+    }
+
+    .stat-label {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .stat-value {
+      font-size: 1.6rem;
+      font-weight: 800;
+      font-family: 'JetBrains Mono', monospace;
+      letter-spacing: -0.03em;
+    }
+
+    .stat-meta {
+      font-size: 0.75rem;
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      font-weight: 600;
+    }
+
+    .meta-win { color: #34D399; }
+    .meta-lose { color: #F87171; }
+    .meta-neutral { color: var(--text-muted); }
+
+    /* Chart section */
+    .chart-card {
+      background: var(--bg-card);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    .chart-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .chart-title {
+      font-size: 1.05rem;
+      font-weight: 700;
+    }
+
+    .chart-container {
+      position: relative;
+      height: 380px;
+      width: 100%;
+    }
+
+    /* Comparison Table Card */
+    .table-card {
+      background: var(--bg-card);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 1.5rem;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.88rem;
+    }
+
+    th {
+      text-align: left;
+      padding: 0.85rem 1rem;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      border-bottom: 1px solid var(--border);
+    }
+
+    td {
+      padding: 1rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.84rem;
+    }
+
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: rgba(255, 255, 255, 0.02); }
+
+    .tag-ours {
+      background: rgba(56, 189, 248, 0.15);
+      color: #38BDF8;
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      font-weight: 700;
+      font-family: inherit;
+    }
+
+    /* Responsive */
+    @media (max-width: 1024px) {
+      .container { grid-template-columns: 1fr; }
+      .stats-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="brand">
+      <div class="brand-icon">⚡</div>
+      <div>
+        <div class="brand-title">Energy Demand Forecasting — MLOps</div>
+        <div class="brand-subtitle">EIA API v2 • 3-Tier LightGBM Regressors • Zero-Leakage Time Series</div>
+      </div>
+    </div>
+    <div class="header-badges">
+      <div class="badge badge-live">Tier Models Ready</div>
+      <div class="badge">51 Balancing Authorities</div>
+    </div>
+  </header>
+
+  <div class="container">
+    <!-- Controls -->
+    <div class="control-card">
+      <div class="section-title">Control Panel</div>
+
+      <div class="form-group">
+        <label for="regionSelect">Balancing Authority</label>
+        <select id="regionSelect" onchange="onRegionChange()">
+          <option value="">Loading regions...</option>
+        </select>
+      </div>
+
+      <div class="tier-indicator">
+        <span style="font-size: 0.85rem; color: var(--text-muted);">Model Tier</span>
+        <span id="tierBadge" class="tier-badge tier-large">Large</span>
+      </div>
+
+      <div class="form-group">
+        <label for="dateSelect">Evaluation Date (t + 1)</label>
+        <input type="date" id="dateSelect" onchange="runForecast()">
+      </div>
+
+      <button class="btn-predict" id="btnPredict" onclick="runForecast()">
+        <span>⚡</span> Run Model Forecast
+      </button>
+
+      <div style="border-top: 1px solid var(--border); padding-top: 1rem; font-size: 0.75rem; color: var(--text-muted); line-height: 1.5;">
+        <strong style="color: #D1D5DB;">Architecture:</strong><br>
+        • Large Tier: ≥ 500k MWh/day (6 BAs)<br>
+        • Medium Tier: 50k–500k MWh/day (25 BAs)<br>
+        • Small Tier: &lt; 50k MWh/day (20 BAs)<br>
+        Evaluated on 15% strictly unseen chronological test split.
+      </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+      <!-- 4 Stat Cards -->
+      <div class="stats-grid">
+        <div class="stat-card primary">
+          <div class="stat-label">Model Forecast (t + 1)</div>
+          <div class="stat-value" id="cardModelPred" style="color: #38BDF8;">—</div>
+          <div class="stat-meta" id="cardModelMeta">
+            <span class="meta-neutral">Ready to predict</span>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-label">Actual Demand (t + 1)</div>
+          <div class="stat-value" id="cardActual">—</div>
+          <div class="stat-meta" id="cardActualMeta">
+            <span class="meta-neutral">Ground truth</span>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-label">EIA Official Day-Ahead</div>
+          <div class="stat-value" id="cardEia">—</div>
+          <div class="stat-meta" id="cardEiaMeta">
+            <span class="meta-neutral">EIA API Benchmark</span>
+          </div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-label">Naive Persistence</div>
+          <div class="stat-value" id="cardNaive">—</div>
+          <div class="stat-meta" id="cardNaiveMeta">
+            <span class="meta-neutral">demand[t] (yesterday)</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Chart -->
+      <div class="chart-card">
+        <div class="chart-header">
+          <div>
+            <div class="chart-title" id="chartTitle">Demand Forecast Timeline</div>
+            <div style="font-size: 0.78rem; color: var(--text-muted);">Recent 60 days: Model Prediction vs Ground Truth vs EIA Benchmark</div>
+          </div>
+        </div>
+        <div class="chart-container">
+          <canvas id="forecastChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Performance Table -->
+      <div class="table-card">
+        <div style="font-size: 0.95rem; font-weight: 700; margin-bottom: 0.85rem;">
+          Forecast Quality Benchmarking
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Approach</th>
+              <th>Predicted MWh</th>
+              <th>Error vs Actual</th>
+              <th>SMAPE Delta</th>
+              <th>Outcome</th>
+            </tr>
+          </thead>
+          <tbody id="comparisonTableBody">
+            <tr>
+              <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">Select a region to view comparison</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let chartInstance = null;
+    let regionsData = null;
+
+    async function init() {
+      try {
+        const res = await fetch('/api/regions');
+        regionsData = await res.json();
+        
+        const select = document.getElementById('regionSelect');
+        select.innerHTML = '';
+
+        for (const [tier, list] of Object.entries(regionsData.tiers)) {
+          const optGroup = document.createElement('optgroup');
+          optGroup.label = `${tier} Tier (${list.length} BAs)`;
+          list.forEach(r => {
+            const opt = document.createElement('option');
+            opt.value = r;
+            opt.textContent = r;
+            optGroup.appendChild(opt);
+          });
+          select.appendChild(optGroup);
+        }
+
+        // Default to PJM (Large tier flagship)
+        select.value = 'PJM';
+        onRegionChange();
+      } catch (err) {
+        console.error('Failed to load regions', err);
+      }
+    }
+
+    function getTierForRegion(resp) {
+      if (!regionsData) return 'Large';
+      for (const [tier, list] of Object.entries(regionsData.tiers)) {
+        if (list.includes(resp)) return tier;
+      }
+      return 'Unknown';
+    }
+
+    function onRegionChange() {
+      const resp = document.getElementById('regionSelect').value;
+      const tier = getTierForRegion(resp);
+      const badge = document.getElementById('tierBadge');
+      badge.textContent = tier;
+      badge.className = `tier-badge tier-${tier.toLowerCase()}`;
+
+      loadHistoryAndForecast(resp);
+    }
+
+    async function loadHistoryAndForecast(resp) {
+      try {
+        const histRes = await fetch(`/api/history?respondent=${resp}&limit=45`);
+        if (!histRes.ok) {
+          // If feature store is not ready yet
+          updateChart([], [], [], []);
+          return;
+        }
+        const data = await histRes.json();
+        const history = data.history;
+
+        if (history.length > 0) {
+          const lastItem = history[history.length - 1];
+          document.getElementById('dateSelect').value = lastItem.target_date;
+        }
+
+        await runForecast();
+        renderTimelineChart(history);
+      } catch (err) {
+        console.warn('History not yet available:', err);
+      }
+    }
+
+    async function runForecast() {
+      const resp = document.getElementById('regionSelect').value;
+      const date = document.getElementById('dateSelect').value;
+
+      try {
+        const res = await fetch('/api/predict', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ respondent: resp, target_date: date || null })
+        });
+
+        if (!res.ok) {
+          const err = await res.json();
+          document.getElementById('cardModelPred').textContent = 'N/A';
+          document.getElementById('cardModelMeta').innerHTML = `<span class="meta-lose">${err.detail || 'Error'}</span>`;
+          return;
+        }
+
+        const data = await res.json();
+        updateCards(data);
+        updateTable(data);
+      } catch (err) {
+        console.error('Forecast error', err);
+      }
+    }
+
+    function formatNumber(num) {
+      if (num === null || num === undefined) return '—';
+      return Math.round(num).toLocaleString() + ' MWh';
+    }
+
+    function updateCards(data) {
+      document.getElementById('cardModelPred').textContent = formatNumber(data.predicted_demand_mwh);
+      document.getElementById('cardActual').textContent = formatNumber(data.actual_demand_mwh);
+      document.getElementById('cardEia').textContent = formatNumber(data.eia_day_ahead_mwh);
+      document.getElementById('cardNaive').textContent = formatNumber(data.naive_persistence_mwh);
+
+      const beatsBoth = data.beats_eia && data.beats_naive;
+      let statusHtml = '';
+      if (data.model_error_pct !== null) {
+        statusHtml = `<span class="meta-win">✓ ${data.model_error_pct}% abs error (${data.beats_eia ? 'beats EIA' : 'EIA closer'})</span>`;
+      }
+      document.getElementById('cardModelMeta').innerHTML = statusHtml || '<span class="meta-win">Forecast Ready</span>';
+
+      if (data.eia_error_pct !== null) {
+        document.getElementById('cardEiaMeta').innerHTML = `<span class="meta-neutral">${data.eia_error_pct}% benchmark error</span>`;
+      }
+      if (data.naive_error_pct !== null) {
+        document.getElementById('cardNaiveMeta').innerHTML = `<span class="meta-neutral">${data.naive_error_pct}% persistence error</span>`;
+      }
+    }
+
+    function updateTable(data) {
+      const tbody = document.getElementById('comparisonTableBody');
+      const act = data.actual_demand_mwh;
+
+      tbody.innerHTML = `
+        <tr>
+          <td><span class="tag-ours">LightGBM Tier Model</span></td>
+          <td>${formatNumber(data.predicted_demand_mwh)}</td>
+          <td style="color: #38BDF8;">${data.model_error_pct !== null ? data.model_error_pct + '%' : '—'}</td>
+          <td>${data.model_abs_error_mwh !== null ? formatNumber(data.model_abs_error_mwh) : '—'}</td>
+          <td><span style="color: #34D399; font-weight: 700;">✓ Active Predictor</span></td>
+        </tr>
+        <tr>
+          <td>EIA Official Day-Ahead</td>
+          <td>${formatNumber(data.eia_day_ahead_mwh)}</td>
+          <td>${data.eia_error_pct !== null ? data.eia_error_pct + '%' : '—'}</td>
+          <td>—</td>
+          <td>${data.beats_eia ? '<span style="color: #F87171;">Beaten by Model</span>' : '<span style="color: #FBBF24;">Benchmark</span>'}</td>
+        </tr>
+        <tr>
+          <td>Naive Persistence (yesterday)</td>
+          <td>${formatNumber(data.naive_persistence_mwh)}</td>
+          <td>${data.naive_error_pct !== null ? data.naive_error_pct + '%' : '—'}</td>
+          <td>—</td>
+          <td>${data.beats_naive ? '<span style="color: #F87171;">Beaten by Model</span>' : '<span style="color: #9CA3AF;">Baseline</span>'}</td>
+        </tr>
+      `;
+    }
+
+    function renderTimelineChart(history) {
+      const ctx = document.getElementById('forecastChart').getContext('2d');
+      const labels = history.map(h => h.target_date);
+      const actuals = history.map(h => h.actual_demand);
+      const eia = history.map(h => h.eia_forecast);
+      const naive = history.map(h => h.naive_persistence);
+
+      if (chartInstance) {
+        chartInstance.destroy();
+      }
+
+      chartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [
+            {
+              label: 'Actual Demand (MWh)',
+              data: actuals,
+              borderColor: '#10B981',
+              backgroundColor: 'rgba(16, 185, 129, 0.05)',
+              borderWidth: 2.2,
+              tension: 0.2,
+              fill: true,
+              pointRadius: 2,
+            },
+            {
+              label: 'EIA Day-Ahead Benchmark',
+              data: eia,
+              borderColor: '#F59E0B',
+              borderWidth: 1.5,
+              borderDash: [5, 4],
+              tension: 0.2,
+              pointRadius: 0,
+            },
+            {
+              label: 'Naive Persistence (t)',
+              data: naive,
+              borderColor: '#6B7280',
+              borderWidth: 1.2,
+              borderDash: [2, 2],
+              tension: 0.1,
+              pointRadius: 0,
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: {
+              labels: { color: '#9CA3AF', font: { family: 'Plus Jakarta Sans', size: 12 } }
+            },
+            tooltip: {
+              backgroundColor: '#1E293B',
+              titleFont: { family: 'Plus Jakarta Sans', weight: 'bold' },
+              bodyFont: { family: 'JetBrains Mono' }
+            }
+          },
+          scales: {
+            x: {
+              grid: { color: 'rgba(255, 255, 255, 0.04)' },
+              ticks: { color: '#6B7280', maxTicksLimit: 12 }
+            },
+            y: {
+              grid: { color: 'rgba(255, 255, 255, 0.04)' },
+              ticks: { color: '#6B7280' }
+            }
+          }
+        }
+      });
+    }
+
+    window.onload = init;
+  </script>
+</body>
+</html>
