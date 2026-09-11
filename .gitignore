@@ -1,33 +1,68 @@
-# Secrets
+# Secrets and environment variables
 .env
+.env.*
+!.env.example
 *.key
+*.pem
 
-# Data (tracked via DVC/S3 later, never committed).
-# Leading slash anchors this to the project root - a bare `data/` would also
-# match src/data/, silently excluding the pipeline source code.
+# Data (tracked via DVC/S3, never committed to git)
 /data/
 !/data/**/.gitkeep
 
-# Python
+# Model weights and artifacts (tracked via MLflow / Model Registry / S3)
+/models/*
+!/models/.gitkeep
+*.joblib
+*.pkl
+*.pickle
+*.onnx
+
+# MLflow & Optuna tracking
+mlruns/
+mlartifacts/
+*.sqlite
+*.sqlite3
+optuna.db
+
+# Airflow local state
+.airflow/
+airflow.db
+airflow.cfg
+
+# Logs
+logs/
+*.log
+
+# Python cache and builds
 __pycache__/
 *.py[cod]
+*$py.class
 *.egg-info/
-.venv/
-venv/
 build/
 dist/
+.venv/
+venv/
+ENV/
 
-# Notebooks
+# Jupyter Notebooks
 .ipynb_checkpoints/
+*/.ipynb_checkpoints/*
 
-# Tooling
+# Testing & Coverage
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
 .coverage
+.coverage.*
 htmlcov/
+coverage.xml
 
-# OS / IDE
+# Operating System & IDEs
 .DS_Store
-.vscode/
+Thumbs.db
+ehthumbs.db
 .idea/
+.vscode/
+*.swp
+*.swo
+*~

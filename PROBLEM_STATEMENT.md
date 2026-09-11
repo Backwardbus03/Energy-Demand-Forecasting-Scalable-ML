@@ -40,7 +40,7 @@ tier**, three models total.
 |---|---|---|---|---|
 | Large | ≥ 500,000 MWh/day | 6 | 10,151 | 4.06% |
 | Medium | 50,000–500,000 | 25 | 42,246 | 4.63% |
-| Small | < 50,000 | 20 | 33,767 | 4.87% |
+| Small | < 50,000 | 21 | 35,473 | 4.87% |
 
 **Large:** CISO, ERCO, MISO, PJM, SOCO, SWPP
 
@@ -48,13 +48,13 @@ tier**, three models total.
 LGEE, NEVP, NYIS, PACE, PACW, PGE, PSCO, PSEI, SC, SCEG, SRP, SW, TEC, TVA
 
 **Small:** AVA, BANC, CHPD, CPLW, DOPD, EPE, GCPD, GVL, HST, IID, JEA, NWMT,
-PNM, SCL, SPA, TAL, TEPC, TIDC, TPWR, WALC
+PNM, SCL, SEC, SPA, TAL, TEPC, TIDC, TPWR, WALC
 
 Rationale: naive SMAPE rises monotonically across tiers, so difficulty tracks
 scale at the tier level. Tier boundaries are fixed **now, before modelling**,
 and are not to be re-tuned after seeing results.
 
-All 51 regions are retained. No region is excluded.
+All 52 regions are retained. No region is excluded.
 
 ## 4. Baselines to beat
 
@@ -136,3 +136,4 @@ The ML is deliberately simple. **The pipeline is the work.**
 | date | change | reason |
 |---|---|---|
 | 2026-08-21 | Statement frozen | Scope fixed before Phase 3 |
+| 2026-09-11 | Added SEC to Small tier | SEC reached 95% data coverage threshold in ingestion backfill (mean demand 5,664 MWh/day) |
