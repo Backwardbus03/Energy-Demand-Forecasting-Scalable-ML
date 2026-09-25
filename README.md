@@ -123,10 +123,129 @@ scripts/
   fetch_raw_data.py         CLI for raw ingestion (backfill / incremental)
   validate_raw_data.py      Validation gate CLI runner
   train_and_evaluate.py     End-to-end feature build, training, and evaluation
+  promote_model.py          Compares candidate vs. live model, gates promotion
+dags/
+  retraining_pipeline.py    Airflow DAG: fetch -> validate -> train -> promote -> reload
 tests/                      78 offline unit tests (no network or disk state required)
-models/                     Trained model artifacts (model_tier_*.joblib)
+models/                     Live (promoted) model artifacts (model_tier_*.joblib)
+models_candidate/           Freshly trained, not-yet-promoted artifacts (ignored in git)
 data/                       Ignored in git (managed via partitioned Parquets)
 ```
+
+---
+
+## Automated Retraining Pipeline (Phase 8 & 13)
+
+Orchestrated with **Apache Airflow**, run daily on a schedule:
+
+```
+fetch_raw_data.py --incremental
+        |
+        v
+validate_raw_data.py                 (exit 1 = structural errors -> DAG fails, stops here)
+        |
+        v
+train_and_evaluate.py --models-dir models_candidate/   (trains a candidate, doesn't touch live models/)
+        |
+        v
+promote_model.py                      (compares candidate WMAPE vs. live models/ per tier;
+        |                              only overwrites models/ if no tier regresses > 2pp WMAPE)
+        v
+POST /admin/reload-models             (tells the running FastAPI server to reload from disk)
+```
+
+A rejected promotion is not a pipeline failure — it means the guardrail worked and the
+previous production model was correctly left in place.
+
+### Status: pipeline logic verified, Airflow scheduler blocked on macOS (arm64)
+
+Every stage of the pipeline has been run and verified end-to-end for real, individually,
+against live data:
+
+- `fetch_raw_data.py --incremental` — fetched real rows from the EIA API
+- `validate_raw_data.py` — passed against 793,160 real rows, correct exit codes confirmed
+- `train_and_evaluate.py --models-dir models_candidate/` — trained real LightGBM models,
+  wrote real metrics to `evaluation_summary_candidate.json`, left `models/` untouched
+- `promote_model.py` — correctly compared candidate vs. live WMAPE and promoted
+- `POST /admin/reload-models` — confirmed live against a running `uvicorn` server
+
+**What's not working yet: Apache Airflow's own scheduler/webserver processes crash on
+this machine.** On this Mac (macOS arm64), Airflow 2.10.5's internal gunicorn-based
+subprocesses (both the webserver and the scheduler's own internal API server) segfault
+on fork (`SIGSEGV`) immediately on startup — before any task or request is even handled.
+This reproduces with `sync` and `gthread` worker classes, with `OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES`,
+and with `AIRFLOW__LOGGING__SERVE_LOGS=False`, so it is not a worker-class or logging
+config issue — it looks like a broken native dependency (likely gunicorn/grpcio/a C
+extension) in this specific Airflow + Python 3.12 install on arm64 macOS, not a bug in
+this project's code or DAG.
+
+**Until that's resolved (planned: try again on Windows), verify/run the pipeline via the
+CLI directly, bypassing Airflow's scheduler:**
+
+```bash
+# Run each stage manually, in order, exactly as the DAG would:
+.venv/bin/python scripts/fetch_raw_data.py --incremental
+.venv/bin/python scripts/validate_raw_data.py
+.venv/bin/python scripts/train_and_evaluate.py \
+  --models-dir models_candidate --output-summary data/evaluation_summary_candidate.json
+.venv/bin/python scripts/promote_model.py
+curl -X POST http://127.0.0.1:8000/admin/reload-models   # only if the server is running
+```
+
+Or, once Airflow is stable in an environment, test/run it through Airflow as normal
+(see below) — the DAG file itself does not need to change.
+
+### Why Airflow runs in its own environment
+
+The project's `.venv` is Python 3.13, and Apache Airflow does not yet officially support
+3.13 (constraint files cap at 3.12). Airflow itself runs from a separate `.venv-airflow`
+(Python 3.12) that only hosts the scheduler/webserver; every DAG task shells out to the
+project's own `.venv` to run the actual scripts, so application code never runs under a
+different Python version than it's tested with.
+
+### One-time setup
+
+```bash
+# 1. Airflow's own environment (Python 3.12 required)
+brew install python@3.12
+python3.12 -m venv .venv-airflow
+.venv-airflow/bin/pip install "apache-airflow==2.10.5" \
+  --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-2.10.5/constraints-3.12.txt"
+
+# 2. Point Airflow at this project and initialize its metadata DB
+export AIRFLOW_HOME="$(pwd)/.airflow"
+.venv-airflow/bin/airflow db migrate
+# dags_folder is already set to ./dags and load_examples=False in .airflow/airflow.cfg
+
+# 3. Create an admin user (first time only)
+.venv-airflow/bin/airflow users create \
+  --username admin --password admin --firstname A --lastname B \
+  --role Admin --email you@example.com
+```
+
+### Running it
+
+```bash
+export AIRFLOW_HOME="$(pwd)/.airflow"
+
+# Start the scheduler (in one terminal)
+.venv-airflow/bin/airflow scheduler
+
+# Start the webserver / UI at http://localhost:8080 (in another terminal)
+.venv-airflow/bin/airflow webserver --port 8080
+
+# Or trigger a single run manually without the scheduler
+.venv-airflow/bin/airflow dags trigger energy_demand_retraining_pipeline
+
+# Or test a single task in isolation (no DB run history needed)
+.venv-airflow/bin/airflow tasks test energy_demand_retraining_pipeline validate_raw_data 2026-01-01
+```
+
+The DAG is scheduled for `0 6 * * *` (daily 06:00 America/New_York) — edit the `schedule`
+in `dags/retraining_pipeline.py` to change cadence. The serving app (`uvicorn src.serving.app:app`)
+should be running for the final `reload_live_models` step to take effect immediately; if it
+isn't reachable, that step is skipped with a warning and the new model still loads on next
+server start.
 
 ---
 
@@ -139,9 +258,9 @@ data/                       Ignored in git (managed via partitioned Parquets)
 - [ ] **Phase 5**: Optuna hyperparameter optimization per tier
 - [ ] **Phase 6**: MLflow experiment tracking
 - [ ] **Phase 7**: MLflow model registry & versioning
-- [ ] **Phase 8**: Apache Airflow DAG orchestration
+- [~] **Phase 8**: Apache Airflow DAG orchestration — DAG written & pipeline logic verified end-to-end via CLI; Airflow's own scheduler/webserver currently segfault on this Mac (arm64) — see [status note](#status-pipeline-logic-verified-airflow-scheduler-blocked-on-macos-arm64)
 - [ ] **Phase 9**: Docker Compose containerization
 - [x] **Phase 10**: FastAPI serving (`/api/predict`) & Interactive UI
 - [ ] **Phase 11**: Cloud deployment (AWS ECS / S3)
 - [ ] **Phase 12**: Evidently AI drift & performance monitoring
-- [ ] **Phase 13**: Automated retraining pipeline
+- [x] **Phase 13**: Automated retraining pipeline (gated promotion, no auto-regression) — logic proven, run manually via CLI until Airflow is stable

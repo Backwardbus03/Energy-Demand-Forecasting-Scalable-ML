@@ -12,6 +12,7 @@
 # Model weights and artifacts (tracked via MLflow / Model Registry / S3)
 /models/*
 !/models/.gitkeep
+/models_candidate/
 *.joblib
 *.pkl
 *.pickle
@@ -41,6 +42,7 @@ __pycache__/
 build/
 dist/
 .venv/
+.venv-airflow/
 venv/
 ENV/
 

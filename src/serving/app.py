@@ -106,6 +106,20 @@ def health() -> dict[str, Any]:
     }
 
 
+@app.post("/admin/reload-models")
+def reload_models() -> dict[str, Any]:
+    """Drop the in-memory model cache so the next request loads from disk.
+
+    Called by the retraining pipeline after a promotion so newly trained
+    artifacts take effect without restarting the server.
+    """
+    global loaded_models, features_cache
+    loaded_models = {}
+    features_cache = None
+    models = get_models()
+    return {"status": "reloaded", "models_loaded": list(models.keys())}
+
+
 @app.get("/api/regions")
 def get_regions() -> dict[str, Any]:
     """Return balancing authorities grouped by tier."""
