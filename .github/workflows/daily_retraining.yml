@@ -9,13 +9,16 @@ jobs:
   retrain_and_monitor:
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    env:
+      # Every script calls load_config(), which requires the key - not just ingestion.
+      EIA_API_KEY: ${{ secrets.EIA_API_KEY }}
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Python 3.11
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.11"
           cache: "pip"
@@ -25,13 +28,28 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run Validation Gate
-        run: python scripts/validate_raw_data.py
+      # data/raw/ is gitignored, so persist the raw Parquet store between runs.
+      # First run (cache miss) does a full backfill; later runs are incremental.
+      - name: Restore raw data cache
+        uses: actions/cache/restore@v4
+        with:
+          path: data/raw/eia
+          key: eia-raw-${{ github.run_id }}
+          restore-keys: |
+            eia-raw-
 
       - name: Run Incremental Ingestion
-        env:
-          EIA_API_KEY: ${{ secrets.EIA_API_KEY }}
         run: python scripts/fetch_raw_data.py --incremental || echo "No new EIA rows or API offline"
+
+      - name: Save raw data cache
+        if: always() && hashFiles('data/raw/eia/**/data.parquet') != ''
+        uses: actions/cache/save@v4
+        with:
+          path: data/raw/eia
+          key: eia-raw-${{ github.run_id }}
+
+      - name: Run Validation Gate
+        run: python scripts/validate_raw_data.py
 
       - name: Generate Evidently AI Drift & Performance Report
         run: |
