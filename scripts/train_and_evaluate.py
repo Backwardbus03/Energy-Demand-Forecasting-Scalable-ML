@@ -84,6 +84,12 @@ def parse_args() -> argparse.Namespace:
         help="Path to output evaluation summary JSON",
     )
     parser.add_argument(
+        "--features-path",
+        type=Path,
+        default=PROJECT_ROOT / "data" / "processed" / "features.parquet",
+        help="Path to save processed feature parquet",
+    )
+    parser.add_argument(
         "--params-path",
         type=Path,
         default=PROJECT_ROOT / "configs" / "tuned_params.json",
@@ -216,10 +222,9 @@ def main() -> int:
     features_df = build_features(panel_df, drop_na_target=True)
 
     # Optionally persist features to processed parquet
-    proc_dir = PROJECT_ROOT / "data" / "processed"
-    proc_dir.mkdir(parents=True, exist_ok=True)
-    features_df.to_parquet(proc_dir / "features.parquet", index=False)
-    logger.info("saved processed feature dataset to %s", proc_dir / "features.parquet")
+    args.features_path.parent.mkdir(parents=True, exist_ok=True)
+    features_df.to_parquet(args.features_path, index=False)
+    logger.info("saved processed feature dataset to %s", args.features_path)
 
     # 4. Split chronologically
     splits = split_time_series(features_df, train_frac=0.70, val_frac=0.15, test_frac=0.15)

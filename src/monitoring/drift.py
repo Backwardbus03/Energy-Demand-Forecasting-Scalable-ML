@@ -18,6 +18,8 @@ from evidently.report import Report
 
 import sys
 
+_compat_mse: Any = None
+
 # Ensure backwards compatibility for Evidently with scikit-learn>=1.6 (which removed `squared` kwarg)
 try:
     import sklearn.metrics
@@ -25,13 +27,14 @@ try:
 
     _orig_mse = sklearn.metrics._regression.mean_squared_error
 
-    def _compat_mse(*args: Any, **kwargs: Any) -> Any:
+    def _compat_mse_fn(*args: Any, **kwargs: Any) -> Any:
         squared = kwargs.pop("squared", True)
         res = _orig_mse(*args, **kwargs)
         if not squared:
             return res ** 0.5
         return res
 
+    _compat_mse = _compat_mse_fn
     sklearn.metrics.mean_squared_error = _compat_mse
     sklearn.metrics._regression.mean_squared_error = _compat_mse
 
@@ -141,13 +144,14 @@ class ModelMonitor:
             metrics_list.append(RegressionQualityMetric())
 
         # Ensure compatibility patch is applied to all loaded evidently submodules
-        try:
-            for mod_name in list(sys.modules.keys()):
-                mod = sys.modules.get(mod_name)
-                if mod and hasattr(mod, "mean_squared_error") and mod_name.startswith("evidently"):
-                    setattr(mod, "mean_squared_error", _compat_mse)
-        except Exception:
-            pass
+        if _compat_mse is not None:
+            try:
+                for mod_name in list(sys.modules.keys()):
+                    mod = sys.modules.get(mod_name)
+                    if mod and hasattr(mod, "mean_squared_error") and mod_name.startswith("evidently"):
+                        setattr(mod, "mean_squared_error", _compat_mse)
+            except Exception:
+                pass
 
         report = Report(metrics=metrics_list)
         report.run(reference_data=ref_eval, current_data=curr_eval)
