@@ -1,104 +1,106 @@
 {
-  "test_period_start": "2025-12-28",
-  "test_period_end": "2026-09-10",
-  "test_row_count": 13333,
+  "test_period_start": "2026-01-30",
+  "test_period_end": "2026-10-19",
+  "test_row_count": 13393,
   "guardrail_fallback_regions": {
     "Large": [],
-    "Medium": [],
+    "Medium": [
+      "BPAT"
+    ],
     "Small": [
-      "GVL",
+      "CHPD",
       "HST",
       "SPA"
     ]
   },
   "lightgbm_models": {
     "Large": {
-      "mae": 46276.69,
-      "smape": 3.39,
-      "wmape": 3.48,
-      "r2": 0.9893,
-      "n_samples": 1542
+      "mae": 43111.07,
+      "smape": 3.19,
+      "wmape": 3.25,
+      "r2": 0.9903,
+      "n_samples": 1578
     },
     "Medium": {
-      "mae": 7810.97,
-      "smape": 4.59,
-      "wmape": 4.59,
-      "r2": 0.9896,
-      "n_samples": 6411
+      "mae": 7647.95,
+      "smape": 4.44,
+      "wmape": 4.52,
+      "r2": 0.9905,
+      "n_samples": 6568
     },
     "Small": {
-      "mae": 820.6,
-      "smape": 4.96,
-      "wmape": 4.12,
-      "r2": 0.9914,
-      "n_samples": 5374
+      "mae": 807.93,
+      "smape": 4.58,
+      "wmape": 3.94,
+      "r2": 0.9915,
+      "n_samples": 5246
     },
     "Overall": {
-      "mae": 9442.84,
-      "smape": 4.6,
-      "wmape": 3.87,
-      "r2": 0.9969,
-      "n_samples": 13327
+      "mae": 9147.21,
+      "smape": 4.35,
+      "wmape": 3.7,
+      "r2": 0.9973,
+      "n_samples": 13392
     }
   },
   "eia_benchmark": {
     "Large": {
-      "mae": 45688.0,
-      "smape": 4.48,
-      "wmape": 3.43,
-      "r2": 0.9924,
-      "n_samples": 1498
+      "mae": 42538.62,
+      "smape": 4.19,
+      "wmape": 3.21,
+      "r2": 0.9929,
+      "n_samples": 1534
     },
     "Medium": {
-      "mae": 11254.17,
-      "smape": 10.48,
-      "wmape": 6.6,
-      "r2": 0.9691,
-      "n_samples": 6272
+      "mae": 10746.99,
+      "smape": 9.95,
+      "wmape": 6.34,
+      "r2": 0.9736,
+      "n_samples": 6434
     },
     "Small": {
-      "mae": 837.44,
-      "smape": 5.37,
-      "wmape": 4.03,
-      "r2": 0.9839,
-      "n_samples": 4986
+      "mae": 768.73,
+      "smape": 4.27,
+      "wmape": 3.58,
+      "r2": 0.9879,
+      "n_samples": 4853
     },
     "Overall": {
-      "mae": 11226.27,
-      "smape": 7.78,
-      "wmape": 4.52,
-      "r2": 0.9968,
-      "n_samples": 12756
+      "mae": 10773.81,
+      "smape": 7.11,
+      "wmape": 4.28,
+      "r2": 0.9972,
+      "n_samples": 12821
     }
   },
   "naive_baseline": {
     "Large": {
-      "mae": 53485.09,
-      "smape": 4.07,
-      "wmape": 4.02,
-      "r2": 0.9869,
-      "n_samples": 1542
+      "mae": 52317.94,
+      "smape": 4.0,
+      "wmape": 3.95,
+      "r2": 0.9868,
+      "n_samples": 1578
     },
     "Medium": {
-      "mae": 8662.09,
-      "smape": 5.15,
-      "wmape": 5.08,
-      "r2": 0.9877,
-      "n_samples": 6407
+      "mae": 8473.1,
+      "smape": 5.03,
+      "wmape": 5.01,
+      "r2": 0.9884,
+      "n_samples": 6567
     },
     "Small": {
-      "mae": 918.8,
-      "smape": 5.51,
-      "wmape": 4.62,
-      "r2": 0.9899,
-      "n_samples": 5374
+      "mae": 913.79,
+      "smape": 5.12,
+      "wmape": 4.46,
+      "r2": 0.9903,
+      "n_samples": 5243
     },
     "Overall": {
-      "mae": 10726.54,
-      "smape": 5.17,
-      "wmape": 4.4,
-      "r2": 0.9962,
-      "n_samples": 13323
+      "mae": 10680.58,
+      "smape": 4.94,
+      "wmape": 4.32,
+      "r2": 0.9963,
+      "n_samples": 13388
     }
   }
 }

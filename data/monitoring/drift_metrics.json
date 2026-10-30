@@ -1,8 +1,8 @@
 {
-  "reference_start_date": "2026-05-13",
-  "reference_end_date": "2026-08-10",
-  "current_start_date": "2026-08-11",
-  "current_end_date": "2026-09-10",
+  "reference_start_date": "2026-06-21",
+  "reference_end_date": "2026-09-18",
+  "current_start_date": "2026-09-19",
+  "current_end_date": "2026-10-19",
   "total_features_evaluated": 35,
   "drifted_features_count": 7,
   "share_of_drifted_features": 0.2,
